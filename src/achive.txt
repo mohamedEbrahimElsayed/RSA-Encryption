@@ -1,0 +1,158 @@
+fermat.c
+========
+// Function to compute (base^exp) % mod
+unsigned int mod_exp(unsigned int base, unsigned int exp, unsigned int mod) {
+    unsigned long res = 1; // Use 32-bit variable for the result
+    unsigned long temp_base = base; // Promote base to 32 bits
+
+    while (exp > 0) {
+        if (exp & 1) {
+            res = (res * temp_base) % mod; // Multiplication and modulo within 32 bits
+        }
+
+        temp_base = (temp_base * temp_base) % mod; // Square the base and reduce modulo mod
+        exp >>= 1; // Shift the exponent right
+    }
+
+    return (unsigned int)res; // Return the 16-bit result
+}
+--------------------------------------------------------------------------------
+EEA.c
+======
+signed long  EEA_modularInverse( signed long  r1 , signed long  r0) {
+      
+		// Initial coefficients
+		signed long  s0 = 1, s1 = 0, t0 = 0, t1 = 1;
+    signed long  temp, q, gcd;
+		signed long original_r0 = r0;
+
+	
+    while (r1 != 0) {
+	
+				q = r0 / r1;
+				temp = r0 % r1;
+				// update r0, r1
+				r0 = r1;
+				r1 = temp;
+				// Update s coefficients
+        temp = s0 - q * s1; 
+				s0 = s1; 
+				s1 = temp;  
+				// Update t coefficients
+        temp = t0 - q * t1; 
+				t0 = t1; 
+				t1 = temp;  
+    }
+
+    gcd = r0;  // GCD is the last non-zero remainder
+
+    // Check if modular inverse exists
+    if (gcd != 1) {
+        return -1;  // Inverse doesn't exist if gcd ? 1
+    }
+
+    // Ensure the result is positive
+    while (t0 < 0) {
+        t0 += original_r0;  // Add modulus to ensure positive result
+    }
+
+    return t0;
+}
+
+long extended_euclidean(long a, long b) {
+    long old_r = a, r = b;
+    long old_s = 1, s = 0;
+    long quotient;
+    long temp;
+    while (r != 0) {
+        quotient = old_r / r;
+
+        // Update r and s
+        temp = r;
+        r = old_r - quotient * r;
+        old_r = temp;
+
+        temp = s;
+        s = old_s - quotient * s;
+        old_s = temp;
+    }
+
+    // If GCD is not 1, there's no modular inverse
+    if (old_r != 1) {
+        return -1;  // Indicating no inverse
+    }
+
+    // Ensure s is positive and in the modulo of b
+    if (old_s < 0) {
+        old_s += b;
+    }
+
+    return old_s;  // Return the modular inverse
+}
+
+--------------------------------------------------------------------------------
+encryption.c
+============
+
+// Function to perform RSA decryption using CRT
+uint32_t rsa_decrypt_crt(uint32_t ct, uint32_t d, uint16_t p, uint16_t q) {
+    uint32_t n = (uint32_t)p * q; // Compute n
+    uint32_t dp = d % (p - 1);    // Compute dp as uint32_t
+    uint32_t dq = d % (q - 1);    // Compute dq as uint32_t
+
+    // Compute ct_p and ct_q as uint32_t
+    uint32_t ct_p = fast_exponentiation(ct % p, dp, p); // ct_p = ct^dp mod p
+    uint32_t ct_q = fast_exponentiation(ct % q, dq, q); // ct_q = ct^dq mod q
+
+    // Compute modular inverses
+    uint32_t cq = modular_inverse(p, q); // cq = p^{-1} mod q
+    uint32_t cp = modular_inverse(q, p); // cp = q^{-1} mod p
+
+    // Combine using CRT
+    uint32_t term1 = multiply_mod(multiply_mod(ct_p, q, n), cp, n);
+    uint32_t term2 = multiply_mod(multiply_mod(ct_q, p, n), cq, n);
+    return (term1 + term2) % n; // x = (term1 + term2) mod n
+}
+--------------------------------------------------------------------------------
+uart.c
+------
+void intToStr(uint32_t num, char* str) {
+    uint8_t i = 0;
+    uint8_t  end;
+    do {
+        str[i++] = (num % 10) + '0';
+        num = num / 10;
+    } while (num > 0);
+
+    str[i] = '\0';
+
+    end = i - 1;
+    i = 0;
+    while (i < end) {
+        char temp = str[i];
+        str[i] = str[end];
+        str[end] = temp;
+        i++;
+        end--;
+    }
+}
+
+// Receives int
+uint32_t UART_receiveInt() {
+    uint32_t num = 0;
+    char c;
+    while ((c = UART_RxChar()) != '\r' && c != '\n') {
+        num = num * 10 + (c - '0');
+    }
+    return num;
+}
+void UART_sendInt(uint32_t num) {
+uint32_t divisor = 1;
+    while (num / divisor > 9)
+    divisor *= 10; // Find the highest power of 10 <= num
+
+    for (; divisor != 0; divisor /= 10)     
+    UART_TxChar((num / divisor) % 10 + '0');
+}
+
+
